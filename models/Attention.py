@@ -58,7 +58,15 @@ class DotAttention(nn.Module):
         V = self.W_value.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_v)
 
         omega = torch.bmm(Q, K.transpose(1, 2))
-        attention_weights = torch.softmax(omega / (self.d_k ** 0.5), dim=2)
+        logits = omega / (self.d_k ** 0.5)
+
+        mask = torch.triu(torch.ones(self.num_clips, self.num_clips), diagonal=1).unsqueeze(0)
+        mask = mask.expand(batch_size, -1, -1).bool().to(self.device)
+
+        logits = logits.masked_fill(mask, float('-inf'))
+
+        attention_weights = torch.softmax(logits, dim=2)
+
         context_vector = torch.bmm(attention_weights, V)
 
         return context_vector
