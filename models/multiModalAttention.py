@@ -1,5 +1,6 @@
 import torch
 from models.Attention import EnergyAttention
+from models.Attention import DotAttention
 from models.FusionModel import FusionModel
 
 
@@ -17,7 +18,7 @@ class FusionClassifierAttention(torch.nn.Module):
 
         self.net_fusion = FusionModel()
         self.classifier = torch.nn.Linear(self.hidden_size, self.n_classes)
-        self.attention = EnergyAttention(input_size=self.hidden_size, num_clips=self.n_clips, topk=self.topk)
+        self.attention = DotAttention(input_size=self.hidden_size, num_clips=self.n_clips, topk=self.topk)
 
     def forward(self, data):
         image_features = data["RGB"]
