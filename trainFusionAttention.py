@@ -8,10 +8,11 @@ import torch.utils.data
 from models.multiModalAttention import FusionClassifierAttention
 import datetime
 import sys
+from torch.optim.lr_scheduler import StepLR
 
 
 # train function
-def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
+def train(file, net, train_loader, val_loader, optimizer, cost_function, scheduler, n_classes, n_clips=5, batch_size=32,
           loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
@@ -39,6 +40,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
 
         optimizer.step()  # update the parameters
         optimizer.zero_grad()  # reset gradient of the optimizer for next iteration
+        # scheduler.step()
 
         # accuracy = compute_accuracy(logits, label, topk=(1, 5))
         # train_metrics = {'top1': accuracy[1], 'top5': accuracy[2]}
@@ -54,7 +56,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
 
         if test_metrics['top1'] >= top_accuracy:
             top_accuracy = test_metrics['top1']
-
+        print(optimizer.param_groups[0]['lr'])
         if iteration % 10 == 0:
             print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy))
 
@@ -98,7 +100,7 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 def main():
     device = "cuda:0"
 
-    lr = 0.01
+    lr = 0.001
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1
@@ -141,10 +143,11 @@ def main():
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
 
     top_accuracy = train(file=file, net=net, train_loader=train_loader, val_loader=val_loader,
-                         optimizer=optimizer, cost_function=loss, n_classes=n_classes, n_clips=n_clips,
-                         batch_size=batch_size)
+                         optimizer=optimizer, cost_function=loss, scheduler=scheduler,
+                         n_classes=n_classes, n_clips=n_clips, batch_size=batch_size)
 
     file.close()
     print('TOP TEST ACCURACY:' + str(top_accuracy))

@@ -2,6 +2,8 @@ import torch
 from models.Attention import EnergyAttention
 from models.Attention import DotAttention
 from models.FusionModel import FusionModel
+import torch.nn as nn
+
 
 
 class FusionClassifierAttention(torch.nn.Module):
@@ -17,7 +19,9 @@ class FusionClassifierAttention(torch.nn.Module):
         self.hidden_size = hidden_size
 
         self.net_fusion = FusionModel()
-        self.classifier = torch.nn.Linear(self.hidden_size, self.n_classes)
+        self.fc1 = torch.nn.Linear(self.hidden_size * self.n_clips, self.hidden_size)
+        self.fc2 = torch.nn.Linear(self.hidden_size, self.n_classes)
+        self.relu = torch.nn.ReLU()
         self.attention = DotAttention(input_size=self.hidden_size, num_clips=self.n_clips, topk=self.topk)
 
     def forward(self, data):
@@ -29,11 +33,21 @@ class FusionClassifierAttention(torch.nn.Module):
         for clip in range(self.n_clips):
             # fusion layer
             imageEMG_features[:][clip] = self.net_fusion(image_features[:][clip], emg_features[:][clip])
+        '''
+        # Reshape the input tensor
+        imageEMG_features = imageEMG_features.view(self.batch_size * self.n_clips, self.hidden_size)
 
-        #imageEMG_features = imageEMG_features.transpose(0, 1)
+        
+        # Apply batch normalization
+        batch_norm = nn.BatchNorm1d(num_features=self.hidden_size).to(self.device)
+        normalized_tensor = batch_norm(imageEMG_features).to(self.device)
 
-        selected_features = self.attention(imageEMG_features)
+        # Reshape the normalized tensor back to the original shape
+        normalized_tensor = normalized_tensor.view(self.batch_size, self.n_clips, self.hidden_size).to(self.device)
+        '''
+        attention_values = self.attention(imageEMG_features)
 
+        '''
         logits = torch.zeros((self.n_clips, self.batch_size, self.n_classes)).to(self.device)
 
         for clip in range(self.topk):
@@ -46,5 +60,9 @@ class FusionClassifierAttention(torch.nn.Module):
             logits[clip] = output
 
         logits = torch.mean(logits, dim=0)
+        '''
+        out = self.fc1(attention_values)
+        out = self.relu(out)
+        logits = self.fc2(out)
 
         return logits

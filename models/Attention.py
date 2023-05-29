@@ -53,9 +53,14 @@ class DotAttention(nn.Module):
 
         inputs_reshaped = inputs.view(batch_size * self.num_clips, self.input_size)
 
+        # Apply batch normalization
+        batch_norm = nn.BatchNorm1d(num_features=self.input_size).to(self.device)
+        inputs_reshaped = batch_norm(inputs_reshaped).to(self.device)
+
         Q = self.W_query.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_q)
         K = self.W_key.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_k)
         V = self.W_value.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_v)
+        # print(self.W_value)
 
         omega = torch.bmm(Q, K.transpose(1, 2))
         logits = omega / (self.d_k ** 0.5)
@@ -68,8 +73,9 @@ class DotAttention(nn.Module):
         attention_weights = torch.softmax(logits, dim=2)
 
         context_vector = torch.bmm(attention_weights, V)
+        concat_vector = context_vector.view(batch_size, self.num_clips * self.d_v)
 
-        return context_vector
+        return concat_vector
 
 
 '''
