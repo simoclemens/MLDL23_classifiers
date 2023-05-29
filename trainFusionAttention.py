@@ -5,14 +5,14 @@ import torch
 from utils.loaders import ActionSenseDataset
 import os
 import torch.utils.data
-from models.multiModalFusion import FusionClassifier
+from models.multiModalAttention import FusionClassifierAttention
 import datetime
 import sys
 
 
 # train function
 def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=100, device="cuda:0"):
+          loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
@@ -27,9 +27,10 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             data_source = next(data_loader_source)
         # IMPORTANT
         # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes prob
-
+        inputs = {}
         label = data_source['label'].to(device)
-        inputs = data_source['RGB'].to(device)
+        inputs['RGB'] = data_source['RGB'].to(device)
+        inputs['EMG'] = data_source['EMG'].to(device)
 
         logits = net.forward(inputs)  # get predictions from the net
         # compute the loss and divide for the number of clips in order to get the average for clip
@@ -55,7 +56,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             top_accuracy = test_metrics['top1']
 
         if iteration % 10 == 0:
-            print('ITERATION:' + str(iteration))
+            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy))
 
     file.write('TOP ACCURACY {:.2f}'.format(top_accuracy))
 
@@ -66,24 +67,30 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
 def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
     net.train(False)  # set model to validate
 
+    total_size = len(val_loader.dataset)
+    top1_acc = 0
+    top5_acc = 0
+
     with torch.no_grad():  # do not update the gradient
         for iteration, (data_source) in enumerate(val_loader):  # extract batches from the val_loader
+            size = data_source['label'].shape[0]
             label = data_source['label'].to(device)  # send label to gpu
-
+            inputs = {}
             # create a zero array with logits shape
             # rows -> clips, columns -> item of the batch, 3rd dim -> classes prob
-            logits = torch.zeros((n_clips, batch_size, n_classes)).to(device)
-
-
-                # send all the data from the batch related to the given clip
-                # inputs is a dictionary with key -> modality, value -> n rows related to the same clip
-            inputs = data_source['RGB'].to(device)
+            inputs['RGB'] = data_source['RGB'].to(device)
+            inputs['EMG'] = data_source['EMG'].to(device)
 
             logits = net(inputs)  # get predictions from the net
+            accuracy = compute_accuracy(logits, label, topk=(1, 5))
+
+            top1_acc += accuracy[0] * size / total_size
+            top5_acc += accuracy[1] * size / total_size
+
 
     # compute the accuracy
-    accuracy = compute_accuracy(logits, label, topk=(1, 5))
-    test_results = {'top1': accuracy[0], 'top5': accuracy[1]}
+
+    test_results = {'top1': top1_acc, 'top5': top5_acc}
 
     return test_results
 
@@ -107,6 +114,7 @@ def main():
     n_classes = int(sys.argv[4])
     annotations_path = sys.argv[5]
     features_path = sys.argv[6]
+    topk = int(sys.argv[7])
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     file_name = dataset + '_' + timestamp + '.txt'
@@ -129,7 +137,7 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    net = FusionClassifier(n_classes=n_classes)
+    net = FusionClassifierAttention(topk=topk, n_classes=n_classes, batch_size=batch_size, n_clips=n_clips)
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()

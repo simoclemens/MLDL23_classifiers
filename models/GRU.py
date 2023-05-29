@@ -6,7 +6,7 @@ import numpy as np
 
 
 class GRU(nn.Module):
-    def __init__(self, num_classes=8, input_size=1024, hidden_size=256, num_layers=1):
+    def __init__(self, num_classes=8, input_size=1024, hidden_size=256, num_layers=1, batch_size = 32):
         super(GRU, self).__init__()
         self.num_classes = num_classes
         self.input_size = input_size
@@ -24,11 +24,10 @@ class GRU(nn.Module):
         # c_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size))  # internal state
         # output from lstm network
         out, hn = self.gru(x)  # lstm with input, hidden, and internal state
-        #out, (hn, cn) = self.gru(x, (h_0, c_0))  # lstm with input, hidden, and internal state
-        hn = hn.view(-1, self.hidden_size)  # reshaping the data for Dense layer next
+        out = out[:, -1, :]
         out = self.relu(out)
         out = self.fc1(out)
         out = self.relu(out)
         out = self.fc2(out)
 
-        return out, hn  
+        return out

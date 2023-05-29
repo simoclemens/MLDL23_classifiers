@@ -27,18 +27,14 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             data_source = next(data_loader_source)
         # IMPORTANT
         # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes prob
+
         label = data_source['label'].to(device)
+        inputs = data_source['RGB'].to(device)
 
-        for clip in range(n_clips):
-            inputs = {}
-
-            inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-            inputs['EMG'] = data_source['EMG'][:, clip].to(device)
-
-            logits = net.forward(inputs)  # get predictions from the net
-            # compute the loss and divide for the number of clips in order to get the average for clip
-            loss = cost_function(logits, label) / n_clips
-            loss.backward()  # apply the backward
+        logits = net.forward(inputs)  # get predictions from the net
+        # compute the loss and divide for the number of clips in order to get the average for clip
+        loss = cost_function(logits, label)
+        loss.backward()  # apply the backward
 
         optimizer.step()  # update the parameters
         optimizer.zero_grad()  # reset gradient of the optimizer for next iteration
@@ -68,28 +64,15 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
 
 # validation function
 def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
+
     net.train(False)  # set model to validate
 
     with torch.no_grad():  # do not update the gradient
         for iteration, (data_source) in enumerate(val_loader):  # extract batches from the val_loader
             label = data_source['label'].to(device)  # send label to gpu
+            inputs = data_source['RGB'].to(device)
 
-            # create a zero array with logits shape
-            # rows -> clips, columns -> item of the batch, 3rd dim -> classes prob
-            logits = torch.zeros((n_clips, batch_size, n_classes)).to(device)
-
-            inputs = {}
-            for clip in range(n_clips):
-                # send all the data from the batch related to the given clip
-                # inputs is a dictionary with key -> modality, value -> n rows related to the same clip
-                inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-                inputs['EMG'] = data_source['EMG'][:, clip].to(device)
-
-                output = net(inputs)  # get predictions from the net
-                logits[clip] = output  # save them in the row related to the clip in logits
-
-            # perform mean over the rows to obtain avg predictions for each class between the several clips
-            logits = torch.mean(logits, dim=0)
+            logits = net(inputs)  # get predictions from the net
 
     # compute the accuracy
     accuracy = compute_accuracy(logits, label, topk=(1, 5))

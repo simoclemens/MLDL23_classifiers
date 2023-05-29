@@ -59,7 +59,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             top_accuracy = test_metrics['top1']
 
         if iteration % 10 == 0:
-            print('ITERATION:' + str(iteration))
+            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy))
 
     file.write('TOP ACCURACY {:.2f}'.format(top_accuracy))
 
@@ -71,8 +71,13 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 
     net.train(False)  # set model to validate
 
+    total_size = len(val_loader.dataset)
+    top1_acc = 0
+    top5_acc = 0
+
     with torch.no_grad():  # do not update the gradient
         for iteration, (data_source) in enumerate(val_loader):  # extract batches from the val_loader
+            size = data_source['label'].shape[0]
             label = data_source['label'].to(device)  # send label to gpu
 
             # create a zero array with logits shape
@@ -91,6 +96,11 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 
             # perform mean over the rows to obtain avg predictions for each class between the several clips
             logits = torch.mean(logits, dim=0)
+
+            accuracy = compute_accuracy(logits, label, topk=(1, 5))
+
+            top1_acc += accuracy[0] * size / total_size
+            top5_acc += accuracy[1] * size / total_size
 
     # compute the accuracy
     accuracy = compute_accuracy(logits, label, topk=(1, 5))
