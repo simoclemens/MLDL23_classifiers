@@ -19,8 +19,8 @@ class FusionClassifierAttention(torch.nn.Module):
         self.hidden_size = hidden_size
 
         self.net_fusion = FusionModel()
-        self.fc1 = torch.nn.Linear(self.hidden_size * self.n_clips, self.hidden_size)
-        self.fc2 = torch.nn.Linear(self.hidden_size, self.n_classes)
+        self.fc1 = torch.nn.Linear(self.hidden_size, int(self.hidden_size/2))
+        self.fc2 = torch.nn.Linear(int(self.hidden_size / 2), self.n_classes)
         self.relu = torch.nn.ReLU()
         self.attention = DotAttention(input_size=self.hidden_size, num_clips=self.n_clips, topk=self.topk)
 

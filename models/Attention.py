@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 
 class EnergyAttention(nn.Module):
@@ -43,9 +44,15 @@ class DotAttention(nn.Module):
         self.d_v = d_v
         self.device = device
 
-        self.W_query = torch.nn.Parameter(torch.rand(self.d_q, input_size))
-        self.W_key = torch.nn.Parameter(torch.rand(self.d_k, input_size))
-        self.W_value = torch.nn.Parameter(torch.rand(self.d_v, input_size))
+        self.W_query = torch.nn.Parameter(torch.rand(self.d_q, input_size)
+                                          / torch.sqrt(torch.tensor(2.0 / (self.d_q + input_size))))
+        self.W_key = torch.nn.Parameter(torch.rand(self.d_k, input_size)
+                                        / torch.sqrt(torch.tensor(2.0 / (self.d_k + input_size))))
+        self.W_value = torch.nn.Parameter(torch.rand(self.d_v, input_size)
+                                          / torch.sqrt(torch.tensor(2.0 / (self.d_v + input_size))))
+
+        self.scale = torch.nn.Parameter(torch.rand(1))
+        self.bias = torch.nn.Parameter(torch.rand(1))
 
     def forward(self, inputs):
 
@@ -57,9 +64,13 @@ class DotAttention(nn.Module):
         batch_norm = nn.BatchNorm1d(num_features=self.input_size).to(self.device)
         inputs_reshaped = batch_norm(inputs_reshaped).to(self.device)
 
-        Q = self.W_query.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_q)
-        K = self.W_key.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_k)
-        V = self.W_value.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_v)
+        W_query_n = F.normalize(self.W_query)
+        W_key_n = F.normalize(self.W_key)
+        W_value_n = F.normalize(self.W_value)
+
+        Q = W_query_n.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_q)
+        K = W_key_n.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_k)
+        V = W_value_n.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_v)
         # print(self.W_value)
 
         omega = torch.bmm(Q, K.transpose(1, 2))
@@ -73,9 +84,10 @@ class DotAttention(nn.Module):
         attention_weights = torch.softmax(logits, dim=2)
 
         context_vector = torch.bmm(attention_weights, V)
-        concat_vector = context_vector.view(batch_size, self.num_clips * self.d_v)
 
-        return concat_vector
+        #concat_vector = context_vector.view(batch_size, self.num_clips * self.d_v)
+
+        return context_vector[:,self.num_clips-1,:]
 
 
 '''
@@ -100,3 +112,16 @@ class DotAttention(nn.Module):
                 attention_weights = F.softmax(omega / self.d_k**0.5, dim=0)
                 context_vector[sample][clip] = attention_weights.matmul(V[sample])
 '''
+
+
+def normalize_layer(input_layer, scale, bias):
+    epsilon = 1e-6
+    mean = torch.mean(input_layer)
+    variance = torch.var(input_layer)
+
+    centered_data = input_layer - mean
+    normalized_data = centered_data / math.sqrt(variance + epsilon)
+
+    output_layer = scale * normalized_data + bias
+
+    return output_layer

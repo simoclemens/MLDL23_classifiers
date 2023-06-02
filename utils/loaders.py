@@ -33,7 +33,7 @@ class ActionSenseDataset(data.Dataset, ABC):
 
         self.model_features = None
 
-        features_name = 'features_' + pickle_name
+        features_name = 'features_' + split + '.pkl'
         # for every modality [RGB,EMG]
 
         self.model_features = pd.DataFrame(pd.read_pickle(os.path.join(features_path,features_name))['features'])[

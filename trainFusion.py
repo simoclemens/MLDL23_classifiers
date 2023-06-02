@@ -12,7 +12,7 @@ import sys
 
 # train function
 def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=100, device="cuda:0"):
+          loss_weight=1, training_iterations=1000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
@@ -26,9 +26,8 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             data_loader_source = iter(train_loader)
             data_source = next(data_loader_source)
         # IMPORTANT
-        # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes prob
+        # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes features
         label = data_source['label'].to(device)
-
         for clip in range(n_clips):
             inputs = {}
 

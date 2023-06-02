@@ -19,7 +19,6 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, schedul
 
     optimizer.zero_grad()  # reset the optimizer gradient
     for iteration in range(training_iterations):
-
         # this snippet is used because we reason in iterations and if we finish the dataset we need to start again
         try:
             data_source = next(data_loader_source)
@@ -100,7 +99,7 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 def main():
     device = "cuda:0"
 
-    lr = 0.001
+    lr = 0.002
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1

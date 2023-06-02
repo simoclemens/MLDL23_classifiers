@@ -7,4 +7,5 @@ from models.multiModalAttention import FusionClassifierAttention
 from models.FusionModel import FusionModel
 from models.Attention import EnergyAttention
 from models.Attention import DotAttention
+from models.FCModel import FCClassifier
 
