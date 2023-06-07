@@ -151,7 +151,7 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    net = FCClassifier(n_classes=n_classes,modality='EMG')
+    net = FCClassifier(n_classes=n_classes, modality='RGB')
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()

@@ -114,24 +114,15 @@ class DotAttention(nn.Module):
 '''
 
 class AttentionScore(nn.Module):
-    def __init__(self, input_size, num_clips, topk, d_q=512, d_k=512, d_v=512,device='cuda:0'):
+    def __init__(self, input_size=1024, num_clips=5,device='cuda:0'):
         super(AttentionScore, self).__init__()
         self.input_size = input_size
         self.num_clips = num_clips
-        self.topk = topk
-        self.linear = nn.Linear(input_size, 1)
-        self.d_q = d_q
-        self.d_k = d_k
-        self.d_v = d_v
+        self.input_size = input_size
         self.device = device
 
-        self.W_query = torch.nn.Parameter(torch.rand(self.d_q, input_size)
-                                          / torch.sqrt(torch.tensor(2.0 / (self.d_q + input_size))))
-        self.W_key = torch.nn.Parameter(torch.rand(self.d_k, input_size)
-                                        / torch.sqrt(torch.tensor(2.0 / (self.d_k + input_size))))
-
-        self.scale = torch.nn.Parameter(torch.rand(1))
-        self.bias = torch.nn.Parameter(torch.rand(1))
+        self.K_w = nn.Linear(self.input_size, self.input_size)
+        self.Q_w = nn.Linear(self.input_size, self.input_size)
 
     def forward(self, inputs):
 
@@ -143,29 +134,14 @@ class AttentionScore(nn.Module):
         batch_norm = nn.BatchNorm1d(num_features=self.input_size).to(self.device)
         inputs_reshaped = batch_norm(inputs_reshaped).to(self.device)
 
-        W_query_n = F.normalize(self.W_query)
-        W_key_n = F.normalize(self.W_key)
-
-        Q = W_query_n.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_q)
-        K = W_key_n.matmul(inputs_reshaped.T).view(batch_size, self.num_clips, self.d_k)
+        Q = self.K_w(inputs_reshaped).view(batch_size, self.num_clips, self.input_size)
+        K = self.Q_w(inputs_reshaped).view(batch_size, self.num_clips, self.input_size)
 
         omega = torch.bmm(Q, K.transpose(1, 2))
-        logits = omega / (self.d_k ** 0.5)
-
+        logits = omega / (self.input_size ** 0.5)
 
         attention_weights = torch.softmax(logits, dim=2)
-        attention_score = torch.sum(attention_weights,dim=2)
+        attention_score = torch.sum(attention_weights,dim=1)
+        attention_score = torch.softmax(attention_score, dim=1)
 
-        return attention_weights
-
-def normalize_layer(input_layer, scale, bias):
-    epsilon = 1e-6
-    mean = torch.mean(input_layer)
-    variance = torch.var(input_layer)
-
-    centered_data = input_layer - mean
-    normalized_data = centered_data / math.sqrt(variance + epsilon)
-
-    output_layer = scale * normalized_data + bias
-
-    return output_layer
+        return attention_score

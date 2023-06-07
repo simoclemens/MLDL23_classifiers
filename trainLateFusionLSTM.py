@@ -29,7 +29,11 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
             data_source = next(data_loader_source)
         # IMPORTANT
         # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes features
+        input={}
         label = data_source['label'].to(device)
+        inputs['RGB'] = data_source['RGB'].to(device)
+        inputs['EMG'] = data_source['EMG'].to(device)
+
         for clip in range(n_clips):
             inputs = {}
 

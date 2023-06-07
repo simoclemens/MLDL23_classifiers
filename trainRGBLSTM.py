@@ -5,22 +5,20 @@ import torch
 from utils.loaders import ActionSenseDataset
 import os
 import torch.utils.data
-from models.FCModel import FCClassifier
+from models.LSTM import LSTM
 import datetime
 import sys
 
 
 # train function
-def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimizerEMG, cost_function, n_classes, n_clips=5, batch_size=32,
+def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
           loss_weight=1, training_iterations=1000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
-    optimizerRGB.zero_grad()  # reset the optimizer gradient
-    optimizerEMG.zero_grad()  # reset the optimizer gradient
+    optimizer.zero_grad()  # reset the optimizer gradient
     for iteration in range(training_iterations):
-        netRGB.train(True)
-        netEMG.train(True)
+        net.train(True)
         # this snippet is used because we reason in iterations and if we finish the dataset we need to start again
         try:
             data_source = next(data_loader_source)
@@ -30,25 +28,20 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
         # IMPORTANT
         # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes features
         label = data_source['label'].to(device)
-        for clip in range(n_clips):
-            inputs = {}
+        inputs = {}
 
-            inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-            inputs['EMG'] = data_source['EMG'][:, clip].to(device)
+        inputs['RGB'] = data_source['RGB'].to(device)
+        inputs['EMG'] = data_source['EMG'].to(device)
 
-            logitsEMG = netRGB.forward(inputs)  # get predictions from the net
-            logitsRGB = netEMG.forward(inputs)  # get predictions from the net
-            # compute the loss and divide for the number of clips in order to get the average for clip
-            logits = logitsRGB+logitsEMG
-            loss = cost_function(logits, label) / n_clips
-            loss.backward()  # apply the backward
+        logits = net.forward(inputs)  # get predictions from the net
+        # compute the loss and divide for the number of clips in order to get the average for clip
+        loss = cost_function(logits, label)
+        loss.backward()  # apply the backward
 
-        optimizerRGB.step()  # update the parameters
-        optimizerEMG.step()  # update the parameters
-        optimizerRGB.zero_grad()  # reset gradient of the optimizer for next iteration
-        optimizerEMG.zero_grad()  # reset gradient of the optimizer for next iteration
+        optimizer.step()  # update the parameters
+        optimizer.zero_grad()  # reset gradient of the optimizer for next iteration
 
-        test_metrics = validate(netRGB, netEMG, val_loader, n_classes, n_clips, batch_size)
+        test_metrics = validate(net, val_loader, n_classes, n_clips, batch_size)
 
         file.write('[{}/{}] ITERATION COMPLETED\n'.format(iteration, training_iterations))
         '''
@@ -69,10 +62,9 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
 
 
 # validation function
-def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
+def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
 
-    netRGB.train(False)  # set model to validate
-
+    net.train(False)  # set model to validate
 
     total_size = len(val_loader.dataset)
     top1_acc = 0
@@ -89,18 +81,10 @@ def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, de
             logits = torch.zeros((n_clips, batch_size, n_classes)).to(device)
 
             inputs = {}
-            for clip in range(n_clips):
-                # send all the data from the batch related to the given clip
-                # inputs is a dictionary with key -> modality, value -> n rows related to the same clip
-                inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-                inputs['EMG'] = data_source['EMG'][:, clip].to(device)
+            inputs['RGB'] = data_source['RGB'].to(device)
+            inputs['EMG'] = data_source['EMG'].to(device)
 
-                outputRGB = netRGB(inputs)  # get predictions from the net
-                outputEMG = netEMG(inputs)  # get predictions from the net
-                logits[clip] = outputRGB+outputEMG  # save them in the row related to the clip in logits
-
-            # perform mean over the rows to obtain avg predictions for each class between the several clips
-            logits = torch.mean(logits, dim=0)
+            logits = net(inputs)  # get predictions from the net
 
             _, predicted = torch.max(logits.data, 1)
 
@@ -159,16 +143,13 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    netRGB = FCClassifier(n_classes=n_classes, modality='RGB')
-    netEMG = FCClassifier(n_classes=n_classes, modality='EMG')
-    netRGB = netRGB.to(device)
-    netEMG = netEMG.to(device)
-    optimizerRGB = get_optimizer(net=netRGB, wd=wd, lr=lr, momentum=momentum)
-    optimizerEMG = get_optimizer(net=netEMG, wd=wd, lr=lr, momentum=momentum)
+    net = LSTM(n_classes=n_classes,modality='RGB')
+    net = net.to(device)
+    optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()
 
-    top_accuracy = train(file=file, netRGB=netRGB,netEMG=netEMG, train_loader=train_loader, val_loader=val_loader,
-                         optimizerRGB=optimizerRGB, optimizerEMG=optimizerEMG, cost_function=loss, n_classes=n_classes, n_clips=n_clips,
+    top_accuracy = train(file=file, net=net, train_loader=train_loader, val_loader=val_loader,
+                         optimizer=optimizer, cost_function=loss, n_classes=n_classes, n_clips=n_clips,
                          batch_size=batch_size)
 
     file.close()

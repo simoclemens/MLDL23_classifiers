@@ -6,25 +6,43 @@ import numpy as np
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_classes=8, input_size=1024, hidden_size=256, num_layers=1):
+    def __init__(self, modality, n_clips=5, batch_size=32,input_size=1024, hidden_size=512, n_classes=20,
+                 device='cuda:0',weights=None,weights_flag=False):
         super(LSTM, self).__init__()
-        self.num_classes = num_classes
         self.input_size = input_size
-        self.num_layers = num_layers
         self.hidden_size = hidden_size
-        self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=self.num_layers)
-        self.fc1 = nn.Linear(self.hidden_size, 128)
-        self.fc2 = nn.Linear(128, self.num_classes)
-        self.relu = nn.ReLU()
+        self.batch_size = batch_size
+        self.n_classes = n_classes
+        self.n_clips = n_clips
+        self.modality = modality
+        self.device = device
+        self.weights=weights
+        self.weights_flag=weights_flag
+        self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, batch_first=True)
+        self.classifier = nn.Linear(self.hidden_size, self.n_classes)
+        self.batch_norm = nn.BatchNorm1d(num_features=self.input_size)
 
-    def forward(self, x):
-        h_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size))  # hidden state
-        c_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size))  # internal state
-        # output from lstm network
-        out, (hn, cn) = self.lstm(x, (h_0, c_0))  # lstm with input, hidden, and internal state
-        hn = hn.view(-1, self.hidden_size)  # reshaping the data for Dense layer next
-        out = self.relu(out)
-        out = self.fc1(out)
-        out = self.relu(out)
-        out = self.fc2(out)
-        return out
+    def forward(self, data):
+        features = data[self.modality]
+
+        inputs_reshaped = features.view(self.batch_size * self.n_clips, self.input_size)
+        features = self.batch_norm(inputs_reshaped).view(self.batch_size, self.n_clips, self.input_size)
+
+        logits = torch.zeros((self.n_clips, self.batch_size, self.n_classes)).to(self.device)
+
+        # Initialize the hidden state and cell state
+        hidden_state = torch.zeros(1, self.batch_size, self.hidden_size).to(self.device)
+        cell_state = torch.zeros(1, self.batch_size, self.hidden_size).to(self.device)
+        hidden = (hidden_state, cell_state)
+
+        for clip in range(self.n_clips):
+            # Get the current clip's input
+            clip_in = features[:, clip, :]
+            # Pass the input through the LSTM
+            output, hidden = self.lstm(clip_in.unsqueeze(1), hidden)  # Unsqueeze to add a time step dimension
+            # Save the output of the clip
+            logits[clip] = self.classifier(output.squeeze(1))  # Squeeze to remove the time step dimension
+        if self.weights_flag == False :
+            logits = torch.mean(logits, dim=0)
+
+        return logits
