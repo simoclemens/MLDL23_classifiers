@@ -18,7 +18,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
 
     optimizer.zero_grad()  # reset the optimizer gradient
     for iteration in range(training_iterations):
-
+        cum_loss = 0
         # this snippet is used because we reason in iterations and if we finish the dataset we need to start again
         try:
             data_source = next(data_loader_source)
@@ -37,6 +37,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             logits = net.forward(inputs)  # get predictions from the net
             # compute the loss and divide for the number of clips in order to get the average for clip
             loss = cost_function(logits, label) / n_clips
+            cum_loss += loss.item()
             loss.backward()  # apply the backward
 
         optimizer.step()  # update the parameters
@@ -52,13 +53,13 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
         file.write('TRAIN: acc@top1={:.2f}%  acc@top5={:.2f}% loss={:.2f}\n',
                    train_metrics['top1'], train_metrics['top5'], loss.item())
         '''
-        file.write('TEST: acc@top1={:.2f}%  acc@top5={:.2f}%\n\n'.format(test_metrics['top1'], test_metrics['top5']))
+        file.write('TRAIN: loss={:.2f} - TEST: acc@top1={:.2f}%  acc@top5={:.2f}%\n\n'.format(cum_loss,test_metrics['top1']*100, 0))
 
         if test_metrics['top1'] >= top_accuracy:
             top_accuracy = test_metrics['top1']
 
         if iteration % 10 == 0:
-            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy))
+            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy*100))
 
     file.write('TOP ACCURACY {:.2f}'.format(top_accuracy))
 
@@ -73,6 +74,8 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
     total_size = len(val_loader.dataset)
     top1_acc = 0
     top5_acc = 0
+
+    val_correct = 0
 
     with torch.no_grad():  # do not update the gradient
         for iteration, (data_source) in enumerate(val_loader):  # extract batches from the val_loader
@@ -96,14 +99,17 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
             # perform mean over the rows to obtain avg predictions for each class between the several clips
             logits = torch.mean(logits, dim=0)
 
-            accuracy = compute_accuracy(logits, label, topk=(1, 5))
+            _, predicted = torch.max(logits.data, 1)
 
-            top1_acc += accuracy[0] * size / total_size
-            top5_acc += accuracy[1] * size / total_size
+            val_correct += (predicted == label).sum().item()
+
+            # accuracy = compute_accuracy(logits, label, topk=(1, 5))
+            # top1_acc += accuracy[0] * size / total_size
+            # top5_acc += accuracy[1] * size / total_size
 
     # compute the accuracy
-    accuracy = compute_accuracy(logits, label, topk=(1, 5))
-    test_results = {'top1': accuracy[0], 'top5': accuracy[1]}
+    accuracy = val_correct / total_size
+    test_results = {'top1': accuracy}
 
     return test_results
 

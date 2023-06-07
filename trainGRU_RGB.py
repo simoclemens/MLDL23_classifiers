@@ -5,19 +5,20 @@ import torch
 from utils.loaders import ActionSenseDataset
 import os
 import torch.utils.data
-from models.multiModalFusion import FusionClassifier
+from models.GRU import GRU
 import datetime
 import sys
 
 
 # train function
 def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=100, device="cuda:0"):
+          loss_weight=1, training_iterations=1000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
     optimizer.zero_grad()  # reset the optimizer gradient
     for iteration in range(training_iterations):
+        net.train(True)
 
         # this snippet is used because we reason in iterations and if we finish the dataset we need to start again
         try:
@@ -122,7 +123,7 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    net = FusionClassifier(n_classes=n_classes)
+    net = GRU(num_classes=n_classes)
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()

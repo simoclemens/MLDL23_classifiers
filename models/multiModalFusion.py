@@ -1,6 +1,6 @@
 import torch
 import torch.nn
-from models.FusionModel import FusionModel
+from models.FusionModel import FusionModel1
 
 
 class FusionClassifier(torch.nn.Module):
@@ -8,7 +8,7 @@ class FusionClassifier(torch.nn.Module):
     def __init__(self, n_classes):
         super(FusionClassifier, self).__init__()
 
-        self.net_fusion = FusionModel()
+        self.net_fusion = FusionModel1()
         self.classifier = torch.nn.Linear(512, n_classes)
 
     def forward(self, data):
