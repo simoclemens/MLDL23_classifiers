@@ -10,3 +10,6 @@ from models.Attention import DotAttention
 from models.FCModel import FCClassifier
 from models.Attention import AttentionScore
 from models.multiModalLateFusion import LateFusionParClassifier
+from models.multiModalScoresLSTM import ScoreClassifierLSTM
+from models.multiModalScores import ScoreClassifier
+

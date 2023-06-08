@@ -12,10 +12,10 @@ import sys
 
 # train function
 def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=1000, device="cuda:0"):
+          loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
-
+    par = 0
     optimizer.zero_grad()  # reset the optimizer gradient
     for iteration in range(training_iterations):
         net.train(True)  # set model to validate
@@ -34,7 +34,7 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             inputs['RGB'] = data_source['RGB'][:, clip].to(device)
             inputs['EMG'] = data_source['EMG'][:, clip].to(device)
 
-            logits = net.forward(inputs)  # get predictions from the net
+            logits,par = net.forward(inputs)  # get predictions from the net
             # compute the loss and divide for the number of clips in order to get the average for clip
             loss = cost_function(logits, label) / n_clips
             loss.backward()  # apply the backward
@@ -55,7 +55,8 @@ def train(file, net, train_loader, val_loader, optimizer, cost_function, n_class
             top_accuracy = test_metrics['top1']
 
         if iteration % 10 == 0:
-            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy*100))
+            print('ITERATION:' + str(iteration) + ' - BEST ACCURACY: {:.2f}'.format(top_accuracy*100) +
+                  ' - PAR: {:.2f}'.format(par))
 
     file.write('TOP ACCURACY {:.2f}'.format(top_accuracy))
 
@@ -86,7 +87,7 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
                 inputs['RGB'] = data_source['RGB'][:, clip].to(device)
                 inputs['EMG'] = data_source['EMG'][:, clip].to(device)
 
-                output = net(inputs)  # get predictions from the net
+                output,_ = net(inputs)  # get predictions from the net
                 logits[clip] = output  # save them in the row related to the clip in logits
 
             # perform mean over the rows to obtain avg predictions for each class between the several clips
@@ -106,7 +107,7 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 def main():
     device = "cuda:0"
 
-    lr = 0.01
+    lr = 0.03
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1

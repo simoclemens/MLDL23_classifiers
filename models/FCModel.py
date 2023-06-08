@@ -14,7 +14,9 @@ class FCClassifier(torch.nn.Module):
 
         #self.fc1 = torch.nn.Linear(self.n_feat, int(self.n_feat/2))
         #self.fc2 = torch.nn.Linear(int(self.n_feat/2), n_classes)
-        self.classifier = torch.nn.Linear(self.n_feat, self.n_classes)
+        self.classifier = torch.nn.Linear(self.n_feat, self.n_classes,bias=True)
+        torch.nn.init.xavier_uniform_(self.classifier.weight)
+        #torch.nn.init.xavier_uniform_(self.classifier.bias)
         #self.relu = nn.ReLU()
         self.norm = nn.BatchNorm1d(self.n_feat)
 

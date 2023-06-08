@@ -12,7 +12,7 @@ import sys
 
 # train function
 def train(file, net, train_loader, val_loader, optimizer, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=1000, device="cuda:0"):
+          loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
@@ -143,7 +143,7 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    net = LSTM(n_classes=n_classes,modality='RGB')
+    net = LSTM(n_classes=n_classes,modality='EMG')
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()

@@ -36,8 +36,8 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
             inputs['RGB'] = data_source['RGB'][:, clip].to(device)
             inputs['EMG'] = data_source['EMG'][:, clip].to(device)
 
-            logitsEMG = netRGB.forward(inputs)  # get predictions from the net
-            logitsRGB = netEMG.forward(inputs)  # get predictions from the net
+            logitsRGB = netRGB.forward(inputs)  # get predictions from the net
+            logitsEMG = netEMG.forward(inputs)  # get predictions from the net
             # compute the loss and divide for the number of clips in order to get the average for clip
             logits = logitsRGB+logitsEMG
             loss = cost_function(logits, label) / n_clips
@@ -72,7 +72,7 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
 def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
 
     netRGB.train(False)  # set model to validate
-
+    netEMG.train(False)
 
     total_size = len(val_loader.dataset)
     top1_acc = 0
@@ -121,7 +121,7 @@ def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, de
 def main():
     device = "cuda:0"
 
-    lr = 0.01
+    lr = 0.02
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1

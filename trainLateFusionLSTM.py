@@ -5,14 +5,14 @@ import torch
 from utils.loaders import ActionSenseDataset
 import os
 import torch.utils.data
-from models.FCModel import FCClassifier
+from models.LSTM import LSTM
 import datetime
 import sys
 
 
 # train function
 def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimizerEMG, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=1000, device="cuda:0"):
+          loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 
@@ -29,23 +29,17 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
             data_source = next(data_loader_source)
         # IMPORTANT
         # data are in the shape rows -> item of the batch, columns -> clips, 3rd dim -> classes features
-        input={}
         label = data_source['label'].to(device)
+        inputs={}
         inputs['RGB'] = data_source['RGB'].to(device)
         inputs['EMG'] = data_source['EMG'].to(device)
 
-        for clip in range(n_clips):
-            inputs = {}
-
-            inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-            inputs['EMG'] = data_source['EMG'][:, clip].to(device)
-
-            logitsEMG = netRGB.forward(inputs)  # get predictions from the net
-            logitsRGB = netEMG.forward(inputs)  # get predictions from the net
-            # compute the loss and divide for the number of clips in order to get the average for clip
-            logits = logitsRGB+logitsEMG
-            loss = cost_function(logits, label) / n_clips
-            loss.backward()  # apply the backward
+        logitsRGB = netRGB.forward(inputs)  # get predictions from the net
+        logitsEMG = netEMG.forward(inputs)  # get predictions from the net
+        # compute the loss and divide for the number of clips in order to get the average for clip
+        logits = logitsRGB+logitsEMG
+        loss = cost_function(logits, label)
+        loss.backward()  # apply the backward
 
         optimizerRGB.step()  # update the parameters
         optimizerEMG.step()  # update the parameters
@@ -76,6 +70,7 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
 def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
 
     netRGB.train(False)  # set model to validate
+    netEMG.train(False)
 
 
     total_size = len(val_loader.dataset)
@@ -87,24 +82,16 @@ def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, de
         for iteration, (data_source) in enumerate(val_loader):  # extract batches from the val_loader
             size = data_source['label'].shape[0]
             label = data_source['label'].to(device)  # send label to gpu
-
-            # create a zero array with logits shape
-            # rows -> clips, columns -> item of the batch, 3rd dim -> classes prob
-            logits = torch.zeros((n_clips, batch_size, n_classes)).to(device)
-
             inputs = {}
-            for clip in range(n_clips):
-                # send all the data from the batch related to the given clip
-                # inputs is a dictionary with key -> modality, value -> n rows related to the same clip
-                inputs['RGB'] = data_source['RGB'][:, clip].to(device)
-                inputs['EMG'] = data_source['EMG'][:, clip].to(device)
 
-                outputRGB = netRGB(inputs)  # get predictions from the net
-                outputEMG = netEMG(inputs)  # get predictions from the net
-                logits[clip] = outputRGB+outputEMG  # save them in the row related to the clip in logits
+            inputs['RGB'] = data_source['RGB'].to(device)
+            inputs['EMG'] = data_source['EMG'].to(device)
+
+            logitsRGB = netRGB(inputs)  # get predictions from the net
+            logitsEMG = netEMG(inputs)  # get predictions from the net
+            logits = logitsRGB+logitsEMG  # save them in the row related to the clip in logits
 
             # perform mean over the rows to obtain avg predictions for each class between the several clips
-            logits = torch.mean(logits, dim=0)
 
             _, predicted = torch.max(logits.data, 1)
 
@@ -163,8 +150,9 @@ def main():
                                              batch_size=batch_size, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    netRGB = FCClassifier(n_classes=n_classes, modality='RGB')
-    netEMG = FCClassifier(n_classes=n_classes, modality='EMG')
+    netRGB = LSTM(n_classes=n_classes,modality='RGB')
+    netEMG = LSTM(n_classes=n_classes,modality='EMG')
+
     netRGB = netRGB.to(device)
     netEMG = netEMG.to(device)
     optimizerRGB = get_optimizer(net=netRGB, wd=wd, lr=lr, momentum=momentum)

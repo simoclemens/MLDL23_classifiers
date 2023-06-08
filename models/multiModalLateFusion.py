@@ -8,7 +8,7 @@ class LateFusionParClassifier(torch.nn.Module):
 
     def __init__(self, n_classes):
         super(LateFusionParClassifier, self).__init__()
-        self.alpha = nn.Parameter(torch.tensor(0.75))
+        self.alpha = nn.Parameter(torch.tensor(0.5))
         self.netRGB = FCClassifier(n_classes=n_classes, modality='RGB')
         self.netEMG = FCClassifier(n_classes=n_classes, modality='EMG')
 
@@ -20,6 +20,6 @@ class LateFusionParClassifier(torch.nn.Module):
         logitsEMG = self.netEMG(data)
         logits = self.alpha*logitsRGB + (1-self.alpha)*logitsEMG
 
-        return logits
+        return logits,self.alpha.data
 
 
