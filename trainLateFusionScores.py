@@ -37,8 +37,8 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
         inputs['RGB'] = data_source['RGB'].to(device)
         inputs['EMG'] = data_source['EMG'].to(device)
 
-        logitsRGB = netRGB.forward(inputs)  # get predictions from the net
-        logitsEMG = netEMG.forward(inputs)
+        logitsRGB,_ = netRGB.forward(inputs)  # get predictions from the net
+        logitsEMG,_ = netEMG.forward(inputs)
         logits = logitsRGB+logitsEMG
         loss = cost_function(logits, label)
         loss.backward()  # apply the backward
@@ -48,7 +48,7 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
         optimizerRGB.zero_grad()  # reset gradient of the optimizer for next iteration
         optimizerEMG.zero_grad()  # reset gradient of the optimizer for next iteration
 
-        test_metrics = validate(netRGB, netEMG, val_loader, n_classes, n_clips, batch_size)
+        test_metrics = validate(netRGB, netEMG, val_loader, n_classes, iteration, n_clips, batch_size)
 
         file.write('[{}/{}] ITERATION COMPLETED\n'.format(iteration, training_iterations))
         '''
@@ -69,9 +69,10 @@ def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimize
 
 
 # validation function
-def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:0"):
+def validate(netRGB, netEMG, val_loader, n_classes, t_iteration, n_clips=5, batch_size=32, device="cuda:0"):
 
     netRGB.train(False)  # set model to validate
+    netEMG.train(False)
 
 
     total_size = len(val_loader.dataset)
@@ -90,9 +91,17 @@ def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, de
             inputs['RGB'] = data_source['RGB'].to(device)
             inputs['EMG'] = data_source['EMG'].to(device)
 
-            logitsRGB = netRGB.forward(inputs)  # get predictions from the net
-            logitsEMG = netEMG.forward(inputs)  # get predictions from the net
+
+            logitsRGB,att_scoreRGB = netRGB.forward(inputs)  # get predictions from the net
+            logitsEMG,att_scoreEMG = netEMG.forward(inputs)  # get predictions from the net
             logits = logitsRGB + logitsEMG
+
+
+            if t_iteration == 1900 or t_iteration==1000 or t_iteration==500:
+                print(att_scoreRGB)
+                print(att_scoreEMG)
+                print(inputs)
+                
 
             # perform mean over the rows to obtain avg predictions for each class between the several clips
             #logits = torch.mean(logits, dim=0)
@@ -151,7 +160,7 @@ def main():
                                                                 num_clips=n_clips,
                                                                 annotations_path=annotations_path,
                                                                 features_path=features_path),
-                                             batch_size=batch_size, shuffle=True,
+                                             batch_size=1, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
     netRGB = ScoreClassifier(n_classes=n_classes, f1='RGB', f2='RGB')

@@ -5,7 +5,7 @@ import torch
 from utils.loaders import ActionSenseDataset
 import os
 import torch.utils.data
-from models.multiModalScores import FusionClassifierScore
+from models.multiModalScores import ScoreClassifier
 import datetime
 import sys
 from torch.optim.lr_scheduler import StepLR
@@ -135,10 +135,10 @@ def main():
                                                                 num_clips=n_clips,
                                                                 annotations_path=annotations_path,
                                                                 features_path=features_path),
-                                             batch_size=batch_size, shuffle=True,
+                                             batch_size=1, shuffle=True,
                                              pin_memory=True, drop_last=True)
 
-    net = FusionClassifierScore(topk=topk, n_classes=n_classes, batch_size=batch_size, n_clips=n_clips)
+    net = ScoreClassifier(topk=topk, n_classes=n_classes, batch_size=batch_size, n_clips=n_clips)
     net = net.to(device)
     optimizer = get_optimizer(net=net, wd=wd, lr=lr, momentum=momentum)
     loss = get_loss_function()

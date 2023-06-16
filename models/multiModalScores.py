@@ -38,4 +38,4 @@ class ScoreClassifier(torch.nn.Module):
 
         logits = torch.mean(logits, dim=0)
 
-        return logits
+        return logits, attention_scores

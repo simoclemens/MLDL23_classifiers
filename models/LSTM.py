@@ -21,9 +21,10 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, batch_first=True)
         self.classifier = nn.Linear(self.hidden_size, self.n_classes)
         self.batch_norm = nn.BatchNorm1d(num_features=self.input_size)
+        self.batch_norm2 = nn.BatchNorm1d(num_features=self.hidden_size)
 
     def forward(self, data):
-        features = data[self.modality]
+        features = data[self.modality].float()
 
         inputs_reshaped = features.view(self.batch_size * self.n_clips, self.input_size)
         features = self.batch_norm(inputs_reshaped).view(self.batch_size, self.n_clips, self.input_size)
@@ -36,6 +37,8 @@ class LSTM(nn.Module):
         hidden = (hidden_state, cell_state)
 
         for clip in range(self.n_clips):
+            hidden = (self.batch_norm2(hidden[0].squeeze(0)).unsqueeze(0),
+                      self.batch_norm2(hidden[1].squeeze(0)).unsqueeze(0))
             # Get the current clip's input
             clip_in = features[:, clip, :]
             # Pass the input through the LSTM

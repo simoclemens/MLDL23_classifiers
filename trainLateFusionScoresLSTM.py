@@ -116,7 +116,7 @@ def validate(netRGB, netEMG, val_loader, n_classes, n_clips=5, batch_size=32, de
 def main():
     device = "cuda:0"
 
-    lr = 0.02
+    lr = 0.01
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1

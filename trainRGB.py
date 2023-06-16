@@ -123,7 +123,7 @@ def validate(net, val_loader, n_classes, n_clips=5, batch_size=32, device="cuda:
 def main():
     device = "cuda:0"
 
-    lr = 0.01
+    lr = 0.001
     wd = 1e-7
     momentum = 0.9
     loss_weight = 1

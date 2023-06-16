@@ -88,11 +88,12 @@ class EpicKitchenDataset(data.Dataset, ABC):
 
         self.model_features = None
 
-        features_name = 'features_' + pickle_name
+        features_name = 'features_' + split + '.pkl'
         # for every modality [RGB,EMG]
 
         self.model_features = pd.DataFrame(pd.read_pickle(os.path.join(features_path,features_name))['features'])[
-                ["uid", "features_RGB"]]
+                ["uid", "features_EMG"]]
+        print(self.model_features.info())
 
         # merge df obtaining for each action features, uid and labels
         self.model_features = pd.merge(self.model_features, self.actions_list, how="inner", on="uid")
@@ -102,9 +103,9 @@ class EpicKitchenDataset(data.Dataset, ABC):
         action = self.uid_list[index]
         sample_row = self.model_features[self.model_features["uid"] == int(action['uid'])]
         assert len(sample_row) == 1
-        image_features = sample_row["features_RGB"].values[0]
+        image_features = sample_row["features_EMG"].values[0]
         labels = action['label']
-        output = {'RGB': image_features, 'label': labels}
+        output = {'EMG': image_features, 'label': labels}
         return output
         # return torch.stack([image_features,emg_features], dim=1), labels
 

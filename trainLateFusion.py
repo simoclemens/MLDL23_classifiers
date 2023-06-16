@@ -12,7 +12,7 @@ import sys
 
 # train function
 def train(file, netRGB, netEMG, train_loader, val_loader, optimizerRGB, optimizerEMG, cost_function, n_classes, n_clips=5, batch_size=32,
-          loss_weight=1, training_iterations=1000, device="cuda:0"):
+          loss_weight=1, training_iterations=2000, device="cuda:0"):
     top_accuracy = 0
     data_loader_source = iter(train_loader)
 

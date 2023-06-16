@@ -76,7 +76,7 @@ class DotAttention(nn.Module):
         omega = torch.bmm(Q, K.transpose(1, 2))
         logits = omega / (self.d_k ** 0.5)
 
-        mask = torch.triu(torch.ones(self.num_clips, self.num_clips), diagonal=1).unsqueeze(0)
+        mask = torch.triu(torch.ones( self.num_clips), diagonal=1).unsqueeze(0)
         mask = mask.expand(batch_size, -1, -1).bool().to(self.device)
 
         logits = logits.masked_fill(mask, float('-inf'))
@@ -120,9 +120,11 @@ class AttentionScore(nn.Module):
         self.num_clips = num_clips
         self.input_size = input_size
         self.device = device
+        self.temp = 1.25
+        self.bias = nn.Parameter(torch.randn(5))
 
-        self.K_w = nn.Linear(self.input_size, self.input_size)
-        self.Q_w = nn.Linear(self.input_size, self.input_size)
+        self.K_w = nn.Linear(self.input_size, self.input_size, bias=False)
+        self.Q_w = nn.Linear(self.input_size, self.input_size, bias=False)
 
     def forward(self, inputs):
 
@@ -138,10 +140,15 @@ class AttentionScore(nn.Module):
         K = self.Q_w(inputs_reshaped).view(batch_size, self.num_clips, self.input_size)
 
         omega = torch.bmm(Q, K.transpose(1, 2))
-        logits = omega / (self.input_size ** 0.5)
+        logits = self.temp * (omega / (self.input_size ** 0.5))
+
+        mask = torch.diag(torch.ones(5)).unsqueeze(0)
+        mask = mask.expand(batch_size, -1, -1).bool().to(self.device)
+
+        logits = logits.masked_fill(mask, float('-inf'))
 
         attention_weights = torch.softmax(logits, dim=2)
-        attention_score = torch.sum(attention_weights,dim=1)
-        attention_score = torch.softmax(attention_score, dim=1)
+        attention_score = torch.mean(attention_weights,dim=1) #+ self.bias
+        # attention_score = torch.softmax(attention_score, dim=1)
 
         return attention_score

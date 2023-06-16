@@ -12,22 +12,16 @@ class FCClassifier(torch.nn.Module):
         self.n_feat = n_feat
         self.n_classes = n_classes
 
-        #self.fc1 = torch.nn.Linear(self.n_feat, int(self.n_feat/2))
-        #self.fc2 = torch.nn.Linear(int(self.n_feat/2), n_classes)
         self.classifier = torch.nn.Linear(self.n_feat, self.n_classes,bias=True)
         torch.nn.init.xavier_uniform_(self.classifier.weight)
-        #torch.nn.init.xavier_uniform_(self.classifier.bias)
-        #self.relu = nn.ReLU()
         self.norm = nn.BatchNorm1d(self.n_feat)
+
+        self.a = nn.Parameter(torch.randn(1))
+        self.b = nn.Parameter(torch.randn(1))
 
     def forward(self, data):
         features = data[self.modality]
-
         norm_data = self.norm(features)
 
-        # classifications network used to extract the logits (predictions)
-        # out = self.fc1(norm_data)
-        # out = self.relu(out)
-        # out = self.fc2(out)
         out = self.classifier(norm_data)
         return out

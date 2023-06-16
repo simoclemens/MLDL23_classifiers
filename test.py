@@ -1,5 +1,7 @@
 import torch
 
-w = torch.rand(32,5,1024)
-
-print(w[1][2].size())
+mask = torch.diag(torch.ones(5)).unsqueeze(0)
+print(mask)
+mask = mask.expand(32, -1, -1).bool()
+print(mask)
+logits = logits.masked_fill(mask, 0)

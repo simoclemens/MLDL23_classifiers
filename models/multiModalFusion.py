@@ -9,7 +9,8 @@ class FusionClassifier(torch.nn.Module):
         super(FusionClassifier, self).__init__()
 
         self.net_fusion = FusionModel()
-        self.classifier = torch.nn.Linear(512, n_classes)
+        self.classifier1 = torch.nn.Linear(2048, 1024)
+        self.classifier2 = torch.nn.Linear(1024, n_classes)
 
     def forward(self, data):
         image_features = data["RGB"]
@@ -19,7 +20,8 @@ class FusionClassifier(torch.nn.Module):
         imageAudio_features = self.net_fusion(image_features, audio_features)
 
         # classifications network used to extract the logits (predictions)
-        logits = self.classifier(imageAudio_features)
+        logits = self.classifier1(imageAudio_features)
+        logits = self.classifier2(logits)
 
         return logits
 
